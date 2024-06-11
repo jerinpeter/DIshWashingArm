@@ -7,11 +7,11 @@ q0 = zeros(6,1);
 q = q0;
 
 % Define task space boundaries (excluding robot's base area)
-x_min = -0.38; x_max = 0.38;
-y_min = -0.38; y_max = 0.38;
+x_min = -0.38; x_max = 0.4;
+y_min = -0.38; y_max = 0.4;
 z_plate = 0.03;  % Plate height
 minDistance = 0.25;  % Minimum distance between plates
-baseRadius = 0.3;  % Radius of the base exclusion zone
+baseRadius = 0.24;  % Radius of the base exclusion zone
 
 % Number of plates
 numPlates = 3;
@@ -34,17 +34,6 @@ for i = 1:numPlates
     end
 end
 
-% BFGSGradientProjection IK object
-ik = inverseKinematics('RigidBodyTree', r);
-
-% Set the orientation to ensure the z-axis points down
-orientation = eul2quat([0, pi/2, 0]);  % Rotate 180 degrees around y-axis to point z-axis down
-
-% Initialize plot
-figure;
-ax = show(r, q, 'Visuals', 'on', 'PreservePlot', 0, 'Fastupdate', 1); hold all;
-drawFloor();
-
 % Loop over each plate
 for idx = 1:numPlates
     PlatePosition = platePositions(idx, :);
@@ -65,10 +54,36 @@ for idx = 1:numPlates
     x = radii .* cos(theta) + PlatePosition(1);
     y = radii .* sin(theta) + PlatePosition(2);
 
+    % BFGSGradientProjection IK object
+    ik = inverseKinematics('RigidBodyTree', r);
+
+    % Set the orientation to ensure the z-axis points down
+    orientation = eul2quat([0, pi/2, 0]);  % Rotate 180 degrees around y-axis to point z-axis down
+
+    % Initialize plot
+    if idx == 1
+        figure;
+        ax = show(r, q, ...
+            'Visuals', 'on', ...
+            'PreservePlot', 0, ...
+            'Fastupdate', 1); hold all;
+        drawFloor();
+    else
+        ax = gca;
+    end
+
+    % Generate trajectories using cubicpolytraj
+    waypoints = [x; y; z];
+    timePoints = linspace(0, 10, nPoints);  % Define time points
+    timeInterval = [0, 10];  % Start and end time for the trajectory
+
+    % Compute polynomial trajectory
+    [q_traj, qd_traj, qdd_traj, pp] = cubicpolytraj(waypoints, timeInterval, timePoints);
+
     % Draw spiral above the plate
     for i = 1:nPoints
         % Desired position and orientation for the plate
-        Td = trvec2tform([x(i), y(i), z(i)]) * quat2tform(orientation);
+        Td = trvec2tform(q_traj(:,i)') * quat2tform(orientation);
 
         % Find pose with numerical IK
         [q_des, solnInfo] = ik('tool0', Td, ones(6,1), q);
@@ -77,41 +92,16 @@ for idx = 1:numPlates
         q = q_des;
 
         % Update plot
-        show(r, q, 'Visuals', 'on', 'PreservePlot', 0, 'Frames', 'off', 'Parent', ax);
-        plotTransforms(Td(1:3,4)', tform2quat(Td), 'Parent', ax, 'framesize', 0.05);
-        plot3(ax, x, y, z, 'm', 'LineWidth', 1);
+        show(r, q, ...
+            'Visuals', 'on', ...
+            'PreservePlot', 0, ...
+            'Frames', 'off', ...
+            'Parent', ax);
+        plotTransforms(Td(1:3,4)', tform2quat(Td), ...
+            'Parent', ax, ...
+            'framesize', 0.05);
+        plot3(ax, q_traj(1,:), q_traj(2,:), q_traj(3,:), 'm', 'LineWidth', 1);
         drawnow;
-    end
-
-    % If not the last plate, generate a trajectory to the next plate
-    if idx < numPlates
-        nextPlatePosition = platePositions(idx + 1, :);
-        midPt = (PlatePosition + nextPlatePosition) / 2;
-        midPt(3) = midPt(3) + 0.1; % Raise the midpoint for a smoother trajectory
-
-        % Define time for each segment
-        trajTimes = [0, 1, 2]; % Start, mid, and end times
-        waypoints = [PlatePosition; midPt; nextPlatePosition]';
-
-        % Generate cubic polynomial trajectory
-        [q_traj, qd_traj, qdd_traj] = cubicpolytraj(waypoints, trajTimes, linspace(0, 2, 100));
-
-        for i = 1:size(q_traj, 2)
-            % Desired position and orientation
-            Td = trvec2tform(q_traj(:, i)') * quat2tform(orientation);
-
-            % Find pose with numerical IK
-            [q_des, solnInfo] = ik('tool0', Td, ones(6,1), q);
-
-            % Use the desired joint angles directly
-            q = q_des;
-
-            % Update plot
-            show(r, q, 'Visuals', 'on', 'PreservePlot', 0, 'Frames', 'off', 'Parent', ax);
-            plotTransforms(Td(1:3,4)', tform2quat(Td), 'Parent', ax, 'framesize', 0.05);
-            plot3(ax, q_traj(1,:), q_traj(2,:), q_traj(3,:), 'm', 'LineWidth', 1);
-            drawnow;
-        end
     end
 end
 
