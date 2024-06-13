@@ -10,8 +10,8 @@ q0 = zeros(6,1);
 q = q0;
 
 % Define task space boundaries (excluding robot's base area)
-x_min = 0.0; x_max = 0.32;
-y_min = -0.38; y_max = 0.32;
+x_min = 0.0; x_max = 0.38;
+y_min = -0.38; y_max = 0.38;
 z_plate = 0.03;  % Plate height
 minDistance = 0.28;  % Minimum distance between plates
 baseRadius = 0.25;  % Radius of the base exclusion zone
@@ -67,13 +67,24 @@ Kp = 20; % Proportional gain
 Kd = 0.1; % Derivative gain
 dt = 0.01; % Time step
 
-% Loop over each plate to execute trajectories
-for idx = 1:numPlates
+% Initialize visited plates array
+visitedPlates = false(numPlates, 1);
+
+% Start position
+currentPosition = [0, 0, 0];  % Assuming the robot starts at the origin
+
+% Loop until all plates are visited
+for visitCount = 1:numPlates
+    % Find the nearest unvisited plate
+    distances = sqrt(sum((platePositions(:,1:2) - currentPosition(1:2)).^2, 2));
+    distances(visitedPlates) = inf;  % Ignore already visited plates
+    [~, idx] = min(distances);  % Find the index of the nearest plate
     PlatePosition = platePositions(idx, :);
+    visitedPlates(idx) = true;  % Mark this plate as visited
 
     % Generate Spiral Trajectory for the plate
     nPoints = 55;
-    radius = 0.12 + 0.05 * rand;  % Random radius for each plate
+    radius = 0.145;  % Random radius for each plate
     turns = 3;
     theta = linspace(0, 2*pi*turns, nPoints);
     radii = linspace(0, radius, nPoints);  % Linear increment in radius to form a spiral
@@ -117,14 +128,22 @@ for idx = 1:numPlates
         drawnow;
     end
 
+    % Update current position to the position of the last point in the spiral
+    currentPosition = [x(end), y(end), z(end)];
+
     % Generate Transition Trajectory using cubicpolytraj if it's not the last plate
-    if idx < numPlates
-        nextPlatePosition = platePositions(idx+1, :);
+    if visitCount < numPlates
+        % Find the nearest unvisited plate again for the next target
+        distances = sqrt(sum((platePositions(:,1:2) - currentPosition(1:2)).^2, 2));
+        distances(visitedPlates) = inf;  % Ignore already visited plates
+        [~, nextIdx] = min(distances);  % Find the index of the nearest plate
+        nextPlatePosition = platePositions(nextIdx, :);
+
         nTransitionPoints = 50;
         transitionTime = linspace(0, 1, nTransitionPoints);
 
         % Calculate the angles for the waypoints around the robot
-        angle1 = atan2(y(end), x(end));
+        angle1 = atan2(currentPosition(2), currentPosition(1));
         angle2 = atan2(nextPlatePosition(2), nextPlatePosition(1));
         
         % Normalize angles to range [0, 2*pi]
@@ -152,7 +171,7 @@ for idx = 1:numPlates
 
         % Create waypoints around the robot
         midPoints = [midRadius*cos(midAngles') midRadius*sin(midAngles') repmat(z_above_plate + 0.2, length(midAngles), 1)];
-        waypoints = [x(end), y(end), z(end); midPoints; nextPlatePosition(1), nextPlatePosition(2), z_plate + z_above_plate];
+        waypoints = [currentPosition; midPoints; nextPlatePosition(1), nextPlatePosition(2), z_plate + z_above_plate];
         waypointsTime = linspace(0, 1, size(waypoints, 1));
 
         [transitionTraj, ~, ~] = cubicpolytraj(waypoints', waypointsTime, transitionTime);
@@ -193,6 +212,9 @@ for idx = 1:numPlates
                 'framesize', 0.05);
             drawnow;
         end
+
+        % Update current position to the position of the last point in the transition
+        currentPosition = [xTransition(end), yTransition(end), zTransition(end)];
     end
 end
 
