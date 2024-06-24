@@ -49,7 +49,7 @@ The simulation provides real-time visualization of the robot’s movements, incl
 The robotic system successfully demonstrates the capability to perform dishwashing tasks through a controlled spiral motion. Future work may include optimizing the control parameters and exploring advanced trajectory planning algorithms to enhance the system’s performance.
 
 ## Acknowledgment
-I would like to express my gratitude to Professor Jonathan Realmutofor his exceptional teaching in the Kinematics and Dynamics (ME221) course. His insightful instruction provided the foundational understanding and intuition necessary for the concepts utilized in this project.
+I would like to express my gratitude to Professor Jonathan Realmuto for his exceptional teaching in the Kinematics and Dynamics (ME221) course. His insightful instruction provided the foundational understanding and intuition necessary for the concepts utilized in this project.
 
 ## References
 1. MathWorks, “Inverse Kinematics - MATLAB Simulink,” [Link](https://www.mathworks.com/help/robotics/ref/inversekinematics.html).
