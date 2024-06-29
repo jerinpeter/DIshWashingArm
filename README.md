@@ -2,6 +2,9 @@
 
 This project implements a plate cleaning robot utilizing the ABB IRB 120 robotic arm. The robot mimics human dishwashing motions through a sophisticated spiral trajectory, ensuring thorough cleaning of plates placed randomly within a predefined workspace. The system leverages numerical inverse kinematics (IK) and Proportional-Derivative (PD) control strategies for precise end-effector positioning and trajectory following.
 
+<img src="docs/arm.gif"/>
+
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Overview](#system-overview)
